@@ -5,7 +5,13 @@ import { useDesigner, designerStore } from "@/lib/designer-store";
 import { products, getProduct } from "@/lib/products";
 import { useState, useRef } from "react";
 import { Upload, Plus, X, Sparkles, ShoppingCart, Send, Save, Search, Loader2, Check, AlertCircle } from "lucide-react";
-import { generatePatioDesigns } from "@/utils/generate-design.functions";
+import { generatePatioDesignVariation } from "@/utils/generate-design.functions";
+
+const VARIATION_META = [
+  { id: "balanced" as const, title: "Diseño acogedor y equilibrado", description: "Distribución natural con los productos colocados de forma armónica para uso diario." },
+  { id: "social" as const, title: "Distribución para reuniones", description: "Composición orientada a la sociabilización, maximizando los asientos y zona común." },
+  { id: "airy" as const, title: "Versión luminosa y despejada", description: "Disposición más abierta, con los productos algo separados para sensación de amplitud." },
+];
 
 export const Route = createFileRoute("/patio-designer")({
   component: PatioDesignerPage,
