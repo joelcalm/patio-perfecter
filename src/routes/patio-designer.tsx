@@ -4,11 +4,8 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { useDesigner, designerStore } from "@/lib/designer-store";
 import { products, getProduct } from "@/lib/products";
 import { useState, useRef } from "react";
-import { Upload, Plus, X, Sparkles, ShoppingCart, Send, Save, Search, Loader2, Check } from "lucide-react";
-
-import designMed from "@/assets/design-mediterranean.jpg";
-import designModern from "@/assets/design-modern.jpg";
-import designCozy from "@/assets/design-cozy.jpg";
+import { Upload, Plus, X, Sparkles, ShoppingCart, Send, Save, Search, Loader2, Check, AlertCircle } from "lucide-react";
+import { generatePatioDesigns } from "@/utils/generate-design.functions";
 
 export const Route = createFileRoute("/patio-designer")({
   component: PatioDesignerPage,
@@ -36,14 +33,27 @@ type DesignResult = {
   id: string;
   title: string;
   description: string;
-  image: string;
+  image: string | null;
+  error: string | null;
 };
+
+async function urlToDataUrl(url: string): Promise<string> {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("read error"));
+    reader.readAsDataURL(blob);
+  });
+}
 
 function PatioDesignerPage() {
   const state = useDesigner();
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [results, setResults] = useState<DesignResult[] | null>(null);
+  const [genError, setGenError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const selectedProducts = Object.entries(state.selectedProductIds)
@@ -61,36 +71,44 @@ function PatioDesignerPage() {
   const canGenerate = state.patioPhoto && selectedProducts.length > 0 && !generating;
 
   const handleFile = (file: File) => {
-    const url = URL.createObjectURL(file);
-    designerStore.setPatioPhoto(url);
+    const reader = new FileReader();
+    reader.onload = () => {
+      designerStore.setPatioPhoto(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    if (!state.patioPhoto) return;
     setGenerating(true);
     setResults(null);
-    setTimeout(() => {
-      setResults([
-        {
-          id: "1",
-          title: "Diseño mediterráneo con zona de sombra",
-          description: "Ambiente cálido con muebles textiles, plantas mediterráneas e iluminación cálida.",
-          image: designMed,
+    setGenError(null);
+    try {
+      const productPayload = await Promise.all(
+        selectedProducts.map(async ({ product, qty }) => ({
+          id: product!.id,
+          name: product!.name,
+          category: product!.category,
+          qty,
+          imageDataUrl: await urlToDataUrl(product!.image),
+        })),
+      );
+
+      const { results: generated } = await generatePatioDesigns({
+        data: {
+          patioImageDataUrl: state.patioPhoto,
+          products: productPayload,
+          style: state.style,
+          details: state.details,
         },
-        {
-          id: "2",
-          title: "Terraza moderna para reuniones",
-          description: "Líneas limpias, pérgola estructural y zona de estar amplia para invitados.",
-          image: designModern,
-        },
-        {
-          id: "3",
-          title: "Patio acogedor de bajo mantenimiento",
-          description: "Madera natural, luces suaves y vegetación resistente. Ideal para uso diario.",
-          image: designCozy,
-        },
-      ]);
+      });
+
+      setResults(generated);
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : "Error al generar el diseño");
+    } finally {
       setGenerating(false);
-    }, 2400);
+    }
   };
 
   return (
@@ -245,6 +263,16 @@ function PatioDesignerPage() {
               </div>
             )}
 
+            {genError && !generating && (
+              <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-lg p-4 flex items-start gap-2 text-sm">
+                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">No se pudo generar el diseño</p>
+                  <p>{genError}</p>
+                </div>
+              </div>
+            )}
+
             {results && (
               <>
                 <div className="flex items-center justify-between">
@@ -310,7 +338,16 @@ function ResultCard({
 }) {
   return (
     <article className="bg-card border border-border rounded-lg overflow-hidden flex flex-col">
-      <img src={result.image} alt={result.title} className="w-full aspect-[4/3] object-cover" loading="lazy" />
+      {result.image ? (
+        <img src={result.image} alt={result.title} className="w-full aspect-[4/3] object-cover" loading="lazy" />
+      ) : (
+        <div className="w-full aspect-[4/3] bg-muted flex items-center justify-center text-center p-4">
+          <div className="text-xs text-destructive flex flex-col items-center gap-2">
+            <AlertCircle className="h-6 w-6" />
+            <span>{result.error || "No se pudo generar"}</span>
+          </div>
+        </div>
+      )}
       <div className="p-4 flex flex-col flex-1">
         <h3 className="font-bold leading-snug">{result.title}</h3>
         <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{result.description}</p>
