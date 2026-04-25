@@ -100,16 +100,48 @@ function PatioDesignerPage() {
         })),
       );
 
-      const { results: generated } = await generatePatioDesigns({
-        data: {
-          patioImageDataUrl: state.patioPhoto,
-          products: productPayload,
-          style: state.style,
-          details: state.details,
-        },
-      });
+      // Initialize 3 placeholder results so the user sees progress
+      setResults(
+        VARIATION_META.map((v) => ({
+          id: v.id,
+          title: v.title,
+          description: v.description,
+          image: null,
+          error: null,
+        })),
+      );
 
-      setResults(generated);
+      // Fire all 3 generations in parallel — each is its own request
+      // so none of them hit the upstream timeout.
+      await Promise.all(
+        VARIATION_META.map(async (v) => {
+          try {
+            const r = await generatePatioDesignVariation({
+              data: {
+                patioImageDataUrl: state.patioPhoto!,
+                products: productPayload,
+                style: state.style,
+                details: state.details,
+                variationId: v.id,
+              },
+            });
+            setResults((prev) =>
+              prev
+                ? prev.map((p) =>
+                    p.id === v.id ? { ...p, image: r.image, error: null } : p,
+                  )
+                : prev,
+            );
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : "Error";
+            setResults((prev) =>
+              prev
+                ? prev.map((p) => (p.id === v.id ? { ...p, error: msg } : p))
+                : prev,
+            );
+          }
+        }),
+      );
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Error al generar el diseño");
     } finally {
