@@ -5,7 +5,13 @@ import { useDesigner, designerStore } from "@/lib/designer-store";
 import { products, getProduct } from "@/lib/products";
 import { useState, useRef } from "react";
 import { Upload, Plus, X, Sparkles, ShoppingCart, Send, Save, Search, Loader2, Check, AlertCircle } from "lucide-react";
-import { generatePatioDesigns } from "@/utils/generate-design.functions";
+import { generatePatioDesignVariation } from "@/utils/generate-design.functions";
+
+const VARIATION_META = [
+  { id: "balanced" as const, title: "Diseño acogedor y equilibrado", description: "Distribución natural con los productos colocados de forma armónica para uso diario." },
+  { id: "social" as const, title: "Distribución para reuniones", description: "Composición orientada a la sociabilización, maximizando los asientos y zona común." },
+  { id: "airy" as const, title: "Versión luminosa y despejada", description: "Disposición más abierta, con los productos algo separados para sensación de amplitud." },
+];
 
 export const Route = createFileRoute("/patio-designer")({
   component: PatioDesignerPage,
@@ -94,16 +100,48 @@ function PatioDesignerPage() {
         })),
       );
 
-      const { results: generated } = await generatePatioDesigns({
-        data: {
-          patioImageDataUrl: state.patioPhoto,
-          products: productPayload,
-          style: state.style,
-          details: state.details,
-        },
-      });
+      // Initialize 3 placeholder results so the user sees progress
+      setResults(
+        VARIATION_META.map((v) => ({
+          id: v.id,
+          title: v.title,
+          description: v.description,
+          image: null,
+          error: null,
+        })),
+      );
 
-      setResults(generated);
+      // Fire all 3 generations in parallel — each is its own request
+      // so none of them hit the upstream timeout.
+      await Promise.all(
+        VARIATION_META.map(async (v) => {
+          try {
+            const r = await generatePatioDesignVariation({
+              data: {
+                patioImageDataUrl: state.patioPhoto!,
+                products: productPayload,
+                style: state.style,
+                details: state.details,
+                variationId: v.id,
+              },
+            });
+            setResults((prev) =>
+              prev
+                ? prev.map((p) =>
+                    p.id === v.id ? { ...p, image: r.image, error: null } : p,
+                  )
+                : prev,
+            );
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : "Error";
+            setResults((prev) =>
+              prev
+                ? prev.map((p) => (p.id === v.id ? { ...p, error: msg } : p))
+                : prev,
+            );
+          }
+        }),
+      );
     } catch (e) {
       setGenError(e instanceof Error ? e.message : "Error al generar el diseño");
     } finally {
@@ -253,7 +291,7 @@ function PatioDesignerPage() {
               <EmptyResults hasPhoto={!!state.patioPhoto} />
             )}
 
-            {generating && (
+            {generating && !results && (
               <div className="bg-card border border-border rounded-lg p-12 text-center">
                 <Loader2 className="h-10 w-10 animate-spin text-brand mx-auto mb-4" />
                 <p className="text-lg font-semibold">Diseñando tu patio ideal…</p>
@@ -279,9 +317,10 @@ function PatioDesignerPage() {
                   <h2 className="text-xl font-bold">3 propuestas para tu patio</h2>
                   <button
                     onClick={handleGenerate}
-                    className="text-sm font-semibold text-brand-dark hover:underline"
+                    disabled={generating}
+                    className="text-sm font-semibold text-brand-dark hover:underline disabled:opacity-50"
                   >
-                    Generar de nuevo
+                    {generating ? "Generando…" : "Generar de nuevo"}
                   </button>
                 </div>
                 <div className="grid md:grid-cols-3 gap-4">
@@ -340,11 +379,18 @@ function ResultCard({
     <article className="bg-card border border-border rounded-lg overflow-hidden flex flex-col">
       {result.image ? (
         <img src={result.image} alt={result.title} className="w-full aspect-[4/3] object-cover" loading="lazy" />
-      ) : (
+      ) : result.error ? (
         <div className="w-full aspect-[4/3] bg-muted flex items-center justify-center text-center p-4">
           <div className="text-xs text-destructive flex flex-col items-center gap-2">
             <AlertCircle className="h-6 w-6" />
-            <span>{result.error || "No se pudo generar"}</span>
+            <span>{result.error}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="w-full aspect-[4/3] bg-muted flex items-center justify-center text-center p-4">
+          <div className="text-xs text-muted-foreground flex flex-col items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin text-brand" />
+            <span>Generando…</span>
           </div>
         </div>
       )}
