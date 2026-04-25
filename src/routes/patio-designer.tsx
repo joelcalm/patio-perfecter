@@ -4,11 +4,8 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { useDesigner, designerStore } from "@/lib/designer-store";
 import { products, getProduct } from "@/lib/products";
 import { useState, useRef } from "react";
-import { Upload, Plus, X, Sparkles, ShoppingCart, Send, Save, Search, Loader2, Check } from "lucide-react";
-
-import designMed from "@/assets/design-mediterranean.jpg";
-import designModern from "@/assets/design-modern.jpg";
-import designCozy from "@/assets/design-cozy.jpg";
+import { Upload, Plus, X, Sparkles, ShoppingCart, Send, Save, Search, Loader2, Check, AlertCircle } from "lucide-react";
+import { generatePatioDesigns } from "@/utils/generate-design.functions";
 
 export const Route = createFileRoute("/patio-designer")({
   component: PatioDesignerPage,
