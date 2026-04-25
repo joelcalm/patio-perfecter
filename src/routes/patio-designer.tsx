@@ -33,14 +33,27 @@ type DesignResult = {
   id: string;
   title: string;
   description: string;
-  image: string;
+  image: string | null;
+  error: string | null;
 };
+
+async function urlToDataUrl(url: string): Promise<string> {
+  const res = await fetch(url);
+  const blob = await res.blob();
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("read error"));
+    reader.readAsDataURL(blob);
+  });
+}
 
 function PatioDesignerPage() {
   const state = useDesigner();
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [results, setResults] = useState<DesignResult[] | null>(null);
+  const [genError, setGenError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const selectedProducts = Object.entries(state.selectedProductIds)
@@ -58,36 +71,44 @@ function PatioDesignerPage() {
   const canGenerate = state.patioPhoto && selectedProducts.length > 0 && !generating;
 
   const handleFile = (file: File) => {
-    const url = URL.createObjectURL(file);
-    designerStore.setPatioPhoto(url);
+    const reader = new FileReader();
+    reader.onload = () => {
+      designerStore.setPatioPhoto(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    if (!state.patioPhoto) return;
     setGenerating(true);
     setResults(null);
-    setTimeout(() => {
-      setResults([
-        {
-          id: "1",
-          title: "Diseño mediterráneo con zona de sombra",
-          description: "Ambiente cálido con muebles textiles, plantas mediterráneas e iluminación cálida.",
-          image: designMed,
+    setGenError(null);
+    try {
+      const productPayload = await Promise.all(
+        selectedProducts.map(async ({ product, qty }) => ({
+          id: product!.id,
+          name: product!.name,
+          category: product!.category,
+          qty,
+          imageDataUrl: await urlToDataUrl(product!.image),
+        })),
+      );
+
+      const { results: generated } = await generatePatioDesigns({
+        data: {
+          patioImageDataUrl: state.patioPhoto,
+          products: productPayload,
+          style: state.style,
+          details: state.details,
         },
-        {
-          id: "2",
-          title: "Terraza moderna para reuniones",
-          description: "Líneas limpias, pérgola estructural y zona de estar amplia para invitados.",
-          image: designModern,
-        },
-        {
-          id: "3",
-          title: "Patio acogedor de bajo mantenimiento",
-          description: "Madera natural, luces suaves y vegetación resistente. Ideal para uso diario.",
-          image: designCozy,
-        },
-      ]);
+      });
+
+      setResults(generated);
+    } catch (e) {
+      setGenError(e instanceof Error ? e.message : "Error al generar el diseño");
+    } finally {
       setGenerating(false);
-    }, 2400);
+    }
   };
 
   return (
