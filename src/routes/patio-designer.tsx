@@ -379,11 +379,18 @@ function ResultCard({
     <article className="bg-card border border-border rounded-lg overflow-hidden flex flex-col">
       {result.image ? (
         <img src={result.image} alt={result.title} className="w-full aspect-[4/3] object-cover" loading="lazy" />
-      ) : (
+      ) : result.error ? (
         <div className="w-full aspect-[4/3] bg-muted flex items-center justify-center text-center p-4">
           <div className="text-xs text-destructive flex flex-col items-center gap-2">
             <AlertCircle className="h-6 w-6" />
-            <span>{result.error || "No se pudo generar"}</span>
+            <span>{result.error}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="w-full aspect-[4/3] bg-muted flex items-center justify-center text-center p-4">
+          <div className="text-xs text-muted-foreground flex flex-col items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin text-brand" />
+            <span>Generando…</span>
           </div>
         </div>
       )}
