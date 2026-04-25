@@ -263,6 +263,16 @@ function PatioDesignerPage() {
               </div>
             )}
 
+            {genError && !generating && (
+              <div className="bg-destructive/10 border border-destructive/30 text-destructive rounded-lg p-4 flex items-start gap-2 text-sm">
+                <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">No se pudo generar el diseño</p>
+                  <p>{genError}</p>
+                </div>
+              </div>
+            )}
+
             {results && (
               <>
                 <div className="flex items-center justify-between">
