@@ -291,7 +291,7 @@ function PatioDesignerPage() {
               <EmptyResults hasPhoto={!!state.patioPhoto} />
             )}
 
-            {generating && (
+            {generating && !results && (
               <div className="bg-card border border-border rounded-lg p-12 text-center">
                 <Loader2 className="h-10 w-10 animate-spin text-brand mx-auto mb-4" />
                 <p className="text-lg font-semibold">Diseñando tu patio ideal…</p>
@@ -317,9 +317,10 @@ function PatioDesignerPage() {
                   <h2 className="text-xl font-bold">3 propuestas para tu patio</h2>
                   <button
                     onClick={handleGenerate}
-                    className="text-sm font-semibold text-brand-dark hover:underline"
+                    disabled={generating}
+                    className="text-sm font-semibold text-brand-dark hover:underline disabled:opacity-50"
                   >
-                    Generar de nuevo
+                    {generating ? "Generando…" : "Generar de nuevo"}
                   </button>
                 </div>
                 <div className="grid md:grid-cols-3 gap-4">
