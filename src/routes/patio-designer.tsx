@@ -328,7 +328,16 @@ function ResultCard({
 }) {
   return (
     <article className="bg-card border border-border rounded-lg overflow-hidden flex flex-col">
-      <img src={result.image} alt={result.title} className="w-full aspect-[4/3] object-cover" loading="lazy" />
+      {result.image ? (
+        <img src={result.image} alt={result.title} className="w-full aspect-[4/3] object-cover" loading="lazy" />
+      ) : (
+        <div className="w-full aspect-[4/3] bg-muted flex items-center justify-center text-center p-4">
+          <div className="text-xs text-destructive flex flex-col items-center gap-2">
+            <AlertCircle className="h-6 w-6" />
+            <span>{result.error || "No se pudo generar"}</span>
+          </div>
+        </div>
+      )}
       <div className="p-4 flex flex-col flex-1">
         <h3 className="font-bold leading-snug">{result.title}</h3>
         <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{result.description}</p>
